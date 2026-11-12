@@ -1,0 +1,174 @@
+name: release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to create, for example v0.1.0
+        required: true
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - name: Resolve release tag
+        id: tag
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          INPUT_TAG: ${{ inputs.tag }}
+        run: |
+          tag=""
+          if [ "$REF_TYPE" = "tag" ]; then
+            tag="$REF_NAME"
+          elif [ -n "$INPUT_TAG" ]; then
+            tag="$INPUT_TAG"
+          else
+            tag=$(printf '%s\n' "$COMMIT_MESSAGE" | head -n1 | grep -oE '^v[0-9][0-9A-Za-z._-]*' || true)
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: prepare
+    if: needs.prepare.outputs.tag != ''
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Create release tag before building
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          remote_tag=$(git ls-remote --tags origin "refs/tags/$TAG" | cut -f1)
+          if [ -n "$remote_tag" ]; then
+            git fetch origin "refs/tags/$TAG:refs/tags/$TAG"
+            existing=$(git rev-parse "$TAG^{commit}")
+            if [ "$existing" != "$GITHUB_SHA" ]; then
+              echo "Tag $TAG already points to $existing, not $GITHUB_SHA" >&2
+              exit 1
+            fi
+          else
+            git tag "$TAG" "$GITHUB_SHA"
+            git push origin "refs/tags/$TAG"
+          fi
+
+      - uses: cachix/install-nix-action@v31
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      # The arx bundle is the source for the proper Nix binary package. The
+      # package in nix/binary.nix extracts it during the Nix build, so the
+      # installed wrapper does not extract at run time.
+      - name: Build arx bundle
+        run: |
+          mkdir -p dist
+          nix bundle .#packages.x86_64-linux.default -o dist/ojuny-login-splash
+          cp -L dist/ojuny-login-splash dist/ojuny-login-splash.bin
+          rm dist/ojuny-login-splash
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum ojuny-login-splash.bin > SHA256SUMS
+
+      # The release flake pins the tagged source, which installs through Nix
+      # normally. It deliberately does not install the raw arx bundle as a
+      # runnable executable.
+      - name: Generate release flake
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          mkdir -p dist/flake
+          cat > dist/flake/flake.nix <<EOF
+          {
+            inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+            inputs.ojuny-login-splash.url = "github:${GITHUB_REPOSITORY}/${TAG}";
+
+            outputs = { self, nixpkgs, ojuny-login-splash }:
+              let
+                systems = [ "x86_64-linux" ];
+              in {
+                packages = nixpkgs.lib.genAttrs systems (system: {
+                  ojuny-login-splash = ojuny-login-splash.packages.\${system}.default;
+                  default = ojuny-login-splash.packages.\${system}.default;
+                });
+              };
+          }
+          EOF
+          tar -czf dist/ojuny-login-splash-flake.tar.gz -C dist/flake flake.nix
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          files: |
+            dist/ojuny-login-splash.bin
+            dist/ojuny-login-splash-flake.tar.gz
+            dist/SHA256SUMS
+          fail_on_unmatched_files: true
+
+      - name: Record binary URL
+        if: needs.prepare.outputs.tag != ''
+        env:
+          TAG: ${{ needs.prepare.outputs.tag }}
+          PACKAGES: ojuny-login-splash.bin:ojuny-login-splash
+        run: |
+          git fetch origin main
+          git checkout -B main origin/main
+          python3 - <<'PY'
+          import base64
+          import json
+          import os
+          import pathlib
+
+          tag = os.environ["TAG"]
+          version = tag[1:] if tag.startswith("v") else tag
+          base = f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/releases/download/{tag}"
+          mapping = dict(item.split(":") for item in os.environ["PACKAGES"].split())
+          sums = {}
+          for line in pathlib.Path("dist/SHA256SUMS").read_text().splitlines():
+              digest, name = line.split()
+              sums[name] = digest
+          missing = [asset for asset in mapping if asset not in sums]
+          if missing:
+              raise SystemExit(f"missing checksums: {missing}")
+          packages = {}
+          for asset, name in mapping.items():
+              packages[name] = {
+                  "file": asset,
+                  "url": f"{base}/{asset}",
+                  "hash": "sha256-" + base64.b64encode(bytes.fromhex(sums[asset])).decode(),
+              }
+          path = pathlib.Path("binary-url.json")
+          data = json.loads(path.read_text())
+          data["latest"] = tag
+          data["releases"][tag] = {"tag": tag, "version": version, "packages": packages}
+          path.write_text(json.dumps(data, indent=2) + "\n")
+          PY
+          if git diff --quiet -- binary-url.json; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add binary-url.json
+          git commit -m "binary: record $TAG [skip ci]"
+          git push origin main
