@@ -1,6 +1,18 @@
 {
   "repo": "ojuny-project/ojuny-login-splash",
   "system": "x86_64-linux",
-  "latest": "",
-  "releases": {}
+  "latest": "v0.1.0",
+  "releases": {
+    "v0.1.0": {
+      "tag": "v0.1.0",
+      "version": "0.1.0",
+      "packages": {
+        "ojuny-login-splash": {
+          "file": "ojuny-login-splash.bin",
+          "url": "https://github.com/ojuny-project/ojuny-login-splash/releases/download/v0.1.0/ojuny-login-splash.bin",
+          "hash": "sha256-Ew3AFPtUZsu6KkYln574XpFfX7gYbtx31Lts5B6noZU="
+        }
+      }
+    }
+  }
 }
