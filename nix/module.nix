@@ -20,7 +20,7 @@ in
 
     seconds = lib.mkOption {
       type = lib.types.nullOr lib.types.float;
-      default = 10;
+      default = 10.0;
       description = "Exit after this many seconds. Null keeps the splash until ESC or --quit.";
     };
 
