@@ -24,6 +24,12 @@ in
       description = "Exit after this many seconds. Null keeps the splash until ESC or --quit.";
     };
 
+    showOnRebuild = lib.mkOption {
+      type = lib.types.bool;
+      default = false;
+      description = "Start the splash on every service start, including rebuilds. When false, it starts once per boot or login.";
+    };
+
     fade = lib.mkOption {
       type = lib.types.nullOr lib.types.float;
       default = null;
@@ -44,10 +50,15 @@ in
         PartOf = [ cfg.sessionTarget ];
         After = [ "graphical-session-pre.target" ];
         Before = [ "xdg-desktop-autostart.target" ];
+        ConditionPathExists =
+          lib.mkIf (!cfg.showOnRebuild) [ "!%t/ojuny-login-splash.started" ];
       };
 
       Service = {
         Type = "exec";
+        ExecStartPre =
+          lib.mkIf (!cfg.showOnRebuild)
+            "${pkgs.coreutils}/bin/touch %t/ojuny-login-splash.started";
         ExecStart = "${cfg.package}/bin/ojuny-login-splash ${arguments}";
         ExecStop = "${cfg.package}/bin/ojuny-login-splash --quit";
         Restart = "no";
