@@ -116,8 +116,7 @@ static void layer_configure(void *data,
     if (application->egl_ready) {
         render_surface_configure(application, draw_surface);
     } else {
-        render_cpu_cover(application, draw_surface,
-                         application->opts.fade <= 0.0);
+        render_cpu_cover(application, draw_surface, false);
     }
 }
 
@@ -240,7 +239,7 @@ static void output_scale(void *data, struct wl_output *wl_output,
     if (out->app->egl_ready) {
         render_surface_configure(out->app, out->surface);
     } else {
-        render_cpu_cover(out->app, out->surface, out->app->opts.fade <= 0.0);
+        render_cpu_cover(out->app, out->surface, false);
     }
 }
 

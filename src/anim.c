@@ -6,6 +6,7 @@
 #include "util.h"
 
 #define OJUNY_PI 3.14159265358979323846
+#define OJUNY_INTRO_SECONDS 0.3
 
 void anim_init(Anim *anim, double fade_seconds) {
     memset(anim, 0, sizeof(*anim));
@@ -54,7 +55,7 @@ AnimFrame anim_sample(const Anim *anim, double now) {
     } else {
         frame.angle = base + step;
     }
-    frame.alpha = 1.0;
+    frame.alpha = smoothstep(elapsed / OJUNY_INTRO_SECONDS);
     frame.scale = 1.0;
     frame.done = false;
     return frame;

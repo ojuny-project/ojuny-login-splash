@@ -165,9 +165,7 @@ void render_surface_configure(app *application, surface *draw_surface) {
                            height, &draw_surface->egl_window,
                            &draw_surface->egl_surface)) {
         log_error("cannot create the EGL window");
-        if (application->opts.fade > 0.0) {
-            render_cpu_full(application, draw_surface);
-        }
+        render_cpu_full(application, draw_surface);
         return;
     }
     if (application->compositor_version >= 3) {

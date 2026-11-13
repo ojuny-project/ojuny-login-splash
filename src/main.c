@@ -59,12 +59,10 @@ int main(int argc, char **argv) {
                      (now_monotonic() - application.start_time) * 1000.0);
         } else {
             log_info("EGL unavailable, keeping the static shm frame");
-            if (application.opts.fade > 0.0) {
-                for (surface *draw_surface = application.surfaces; draw_surface;
-                     draw_surface = draw_surface->next) {
-                    if (draw_surface->configured) {
-                        render_cpu_full(&application, draw_surface);
-                    }
+            for (surface *draw_surface = application.surfaces; draw_surface;
+                 draw_surface = draw_surface->next) {
+                if (draw_surface->configured) {
+                    render_cpu_full(&application, draw_surface);
                 }
             }
         }

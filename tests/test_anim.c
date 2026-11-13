@@ -20,15 +20,20 @@ static void test_rotation(void) {
 
     AnimFrame frame = anim_sample(&anim, 100.0);
     close_to(frame.angle, 0.0, 1e-9);
-    close_to(frame.alpha, 1.0, 1e-9);
+    close_to(frame.alpha, 0.0, 1e-9);
     close_to(frame.scale, 1.0, 1e-9);
     assert(!frame.done);
 
+    frame = anim_sample(&anim, 100.15);
+    close_to(frame.alpha, 0.5, 1e-9);
+
     frame = anim_sample(&anim, 100.35);
     close_to(frame.angle, TEST_PI / 6.0, 1e-9);
+    close_to(frame.alpha, 1.0, 1e-9);
 
     frame = anim_sample(&anim, 100.7);
     close_to(frame.angle, TEST_PI / 3.0, 1e-9);
+    close_to(frame.alpha, 1.0, 1e-9);
 
     frame = anim_sample(&anim, 100.9);
     close_to(frame.angle, TEST_PI / 3.0, 1e-9);
