@@ -354,7 +354,10 @@ bool gl_init(Gl *gl, struct wl_display *display, const Assets *assets) {
     if (!upload_texture(gl, &gl->logo_tex, assets->logo_w, assets->logo_h,
                         assets->logo) ||
         !upload_texture(gl, &gl->text_tex, assets->text_w, assets->text_h,
-                        assets->text)) {
+                        assets->text) ||
+        (assets->tip &&
+         !upload_texture(gl, &gl->tip_tex, assets->tip_w, assets->tip_h,
+                         assets->tip))) {
         gl->p_eglDestroyContext(gl->display, gl->context);
         gl->context = EGL_NO_CONTEXT;
         gl->p_eglTerminate(gl->display);

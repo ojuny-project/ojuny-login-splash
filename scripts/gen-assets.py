@@ -81,6 +81,18 @@ def render_text(text, font_path, font_size, color):
     return image
 
 
+def read_tips(path):
+    if not path:
+        return []
+    tips = []
+    with open(path, encoding="utf-8") as handle:
+        for line in handle:
+            tip = line.strip()
+            if tip and not tip.startswith("#"):
+                tips.append(tip)
+    return tips
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--logo", required=True)
@@ -94,15 +106,24 @@ def main():
     parser.add_argument("--text", default="Welcome to Ojuny")
     parser.add_argument("--border-percent", type=float, default=22.0)
     parser.add_argument("--text-gap", type=int, default=32)
+    parser.add_argument("--tips-file", default="")
+    parser.add_argument("--tip-foreground", default="#a89984")
+    parser.add_argument("--tip-font-size", type=int, default=18)
+    parser.add_argument("--tip-gap", type=int, default=10)
     args = parser.parse_args()
 
     if args.font_size <= 0:
         raise SystemExit("font size must be positive")
     if args.text_gap < 0:
         raise SystemExit("text gap must not be negative")
+    if args.tip_font_size <= 0:
+        raise SystemExit("tip font size must be positive")
+    if args.tip_gap < 0:
+        raise SystemExit("tip gap must not be negative")
 
     background = parse_hex(args.background)
     foreground = parse_hex(args.foreground)
+    tip_foreground = parse_hex(args.tip_foreground)
 
     with Image.open(args.logo) as source:
         logo = source.convert("RGBA")
@@ -121,6 +142,10 @@ def main():
     logo = canvas
 
     text = render_text(args.text, args.font, args.font_size, foreground)
+    tips = [
+        render_text(tip, args.font, args.tip_font_size, tip_foreground)
+        for tip in read_tips(args.tips_file)
+    ]
 
     os.makedirs(args.out_dir, exist_ok=True)
     bg_rgb = (background[0] << 16) | (background[1] << 8) | background[2]
@@ -142,9 +167,17 @@ def main():
     with open(os.path.join(args.out_dir, "text.rgba"), "wb") as handle:
         handle.write(text.tobytes())
 
+    with open(os.path.join(args.out_dir, "tips.meta"), "wb") as handle:
+        handle.write(struct.pack("<3I", 1, len(tips), args.tip_gap))
+        for tip in tips:
+            handle.write(struct.pack("<2I", tip.width, tip.height))
+    for index, tip in enumerate(tips):
+        with open(os.path.join(args.out_dir, f"tip-{index}.rgba"), "wb") as handle:
+            handle.write(tip.tobytes())
+
     print(
         f"logo {logo.width}x{logo.height} content {content} "
-        f"text {text.width}x{text.height} bg #{bg_rgb:06x}",
+        f"text {text.width}x{text.height} tips {len(tips)} bg #{bg_rgb:06x}",
         file=sys.stderr,
     )
 

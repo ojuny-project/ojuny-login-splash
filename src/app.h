@@ -61,6 +61,7 @@ typedef struct app {
     bool egl_ready;
     bool running;
     bool have_stop_deadline;
+    bool fade_out_started;
     double start_time;
     double stop_deadline;
 } app;

@@ -13,8 +13,22 @@
   text ? "Welcome to Ojuny",
   borderPercent ? 22,
   textGap ? 32,
+  tips ? [ ],
+  tipsFile ? null,
+  tipForeground ? "#a89984",
+  tipFontSize ? 18,
+  tipGap ? 10,
 }:
 
+let
+  tipsSource =
+    if tipsFile != null then
+      tipsFile
+    else
+      builtins.toFile "ojuny-login-splash-tips.txt" (
+        lib.concatStringsSep "\n" tips + "\n"
+      );
+in
 stdenv.mkDerivation {
   pname = "ojuny-login-splash-assets";
   version = "0.1.0";
@@ -44,7 +58,11 @@ stdenv.mkDerivation {
       --font-size ${toString fontSize} \
       --text "${text}" \
       --border-percent ${toString borderPercent} \
-      --text-gap ${toString textGap}
+      --text-gap ${toString textGap} \
+      --tips-file "${tipsSource}" \
+      --tip-foreground "${tipForeground}" \
+      --tip-font-size ${toString tipFontSize} \
+      --tip-gap ${toString tipGap}
     runHook postInstall
   '';
 }

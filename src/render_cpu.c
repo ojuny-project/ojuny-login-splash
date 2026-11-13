@@ -82,6 +82,13 @@ static void paint(Assets *assets, uint32_t *pixels, uint32_t width,
                  (int)assets->text_gap;
     blend_image(pixels, (int)width, (int)height, assets->text,
                 (int)assets->text_w, (int)assets->text_h, text_x, text_y);
+
+    if (assets->tip) {
+        int tip_x = ((int)width - (int)assets->tip_w) / 2;
+        int tip_y = text_y + (int)assets->text_h + (int)assets->tip_gap;
+        blend_image(pixels, (int)width, (int)height, assets->tip,
+                    (int)assets->tip_w, (int)assets->tip_h, tip_x, tip_y);
+    }
 }
 
 static void cover_release(void *data, struct wl_buffer *buffer) {

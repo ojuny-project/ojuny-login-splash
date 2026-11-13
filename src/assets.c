@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
@@ -53,6 +54,24 @@ static bool read_meta(uint32_t values[8]) {
     return true;
 }
 
+static bool read_exact(int fd, void *buffer, size_t size) {
+    size_t offset = 0;
+    while (offset < size) {
+        ssize_t got = read(fd, (unsigned char *)buffer + offset, size - offset);
+        if (got < 0) {
+            if (errno == EINTR) {
+                continue;
+            }
+            return false;
+        }
+        if (got == 0) {
+            return false;
+        }
+        offset += (size_t)got;
+    }
+    return true;
+}
+
 static bool map_asset(const char *name, size_t expected, const uint8_t **pointer,
                       void **map, size_t *map_size) {
     char path[512];
@@ -83,6 +102,69 @@ static bool map_asset(const char *name, size_t expected, const uint8_t **pointer
     *map = mapped;
     *map_size = expected;
     return true;
+}
+
+static void load_tips(Assets *assets) {
+    char path[1024];
+    snprintf(path, sizeof(path), "%s/tips.meta", OJUNY_ASSET_DIR);
+    int fd = open(path, O_RDONLY | O_CLOEXEC);
+    if (fd < 0) {
+        if (errno != ENOENT) {
+            log_error("cannot open %s: %s", path, strerror(errno));
+        }
+        return;
+    }
+
+    uint32_t header[3];
+    if (!read_exact(fd, header, sizeof(header))) {
+        log_error("cannot read %s", path);
+        close(fd);
+        return;
+    }
+    uint32_t version = header[0];
+    uint32_t count = header[1];
+    uint32_t gap = header[2];
+    if (version != 1 || count > 4096 || gap > 4096) {
+        log_error("invalid tips metadata");
+        close(fd);
+        return;
+    }
+    assets->tip_gap = gap;
+    if (count == 0) {
+        close(fd);
+        return;
+    }
+
+    uint32_t *sizes = malloc((size_t)count * 2u * sizeof(uint32_t));
+    if (!sizes) {
+        close(fd);
+        return;
+    }
+    if (!read_exact(fd, sizes, (size_t)count * 2u * sizeof(uint32_t))) {
+        log_error("cannot read tip sizes");
+        free(sizes);
+        close(fd);
+        return;
+    }
+    close(fd);
+
+    uint32_t index = random_u32() % count;
+    uint32_t width = sizes[index * 2u];
+    uint32_t height = sizes[index * 2u + 1u];
+    free(sizes);
+    if (width == 0 || height == 0 || width > 16384 || height > 16384) {
+        log_error("invalid tip dimensions");
+        return;
+    }
+
+    char name[64];
+    snprintf(name, sizeof(name), "tip-%u.rgba", index);
+    size_t expected = (size_t)width * (size_t)height * 4u;
+    if (map_asset(name, expected, &assets->tip, &assets->tip_map,
+                  &assets->tip_map_size)) {
+        assets->tip_w = width;
+        assets->tip_h = height;
+    }
 }
 
 bool assets_load(Assets *assets) {
@@ -136,6 +218,7 @@ bool assets_load(Assets *assets) {
         assets_unload(assets);
         return false;
     }
+    load_tips(assets);
     return true;
 }
 
@@ -145,6 +228,9 @@ void assets_unload(Assets *assets) {
     }
     if (assets->text_map) {
         munmap(assets->text_map, assets->text_map_size);
+    }
+    if (assets->tip_map) {
+        munmap(assets->tip_map, assets->tip_map_size);
     }
     memset(assets, 0, sizeof(*assets));
 }

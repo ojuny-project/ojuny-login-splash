@@ -6,6 +6,8 @@
 typedef struct {
     double seconds;
     double fade;
+    double fade_in;
+    double fade_out;
     bool quit;
     bool help;
     bool version;

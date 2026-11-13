@@ -24,12 +24,16 @@ void options_init(Options *options) {
     memset(options, 0, sizeof(*options));
     options->seconds = -1.0;
     options->fade = 0.0;
+    options->fade_in = 0.3;
+    options->fade_out = 0.3;
 }
 
 bool options_parse(Options *options, int argc, char **argv) {
     static const struct option long_options[] = {
         {"seconds", required_argument, NULL, 's'},
         {"fade", required_argument, NULL, 'f'},
+        {"fade-in", required_argument, NULL, 'i'},
+        {"fade-out", required_argument, NULL, 'o'},
         {"quit", no_argument, NULL, 'q'},
         {"help", no_argument, NULL, 'h'},
         {"version", no_argument, NULL, 'v'},
@@ -48,6 +52,16 @@ bool options_parse(Options *options, int argc, char **argv) {
             break;
         case 'f':
             if (!parse_number(optarg, &options->fade, false)) {
+                return false;
+            }
+            break;
+        case 'i':
+            if (!parse_number(optarg, &options->fade_in, true)) {
+                return false;
+            }
+            break;
+        case 'o':
+            if (!parse_number(optarg, &options->fade_out, true)) {
                 return false;
             }
             break;
@@ -73,6 +87,8 @@ void options_usage(FILE *out) {
             "\n"
             "  --seconds N   exit after N seconds\n"
             "  --fade N      fade and grow over N seconds instead of rotating\n"
+            "  --fade-in N   asset fade-in over N seconds (default 0.3)\n"
+            "  --fade-out N  fade out over N seconds before the timer exits (default 0.3)\n"
             "  --quit        stop all running instances\n"
             "  --help        show this help\n"
             "  --version     show the version\n");

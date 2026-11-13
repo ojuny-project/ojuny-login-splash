@@ -30,7 +30,7 @@ make
 make test
 ```
 
-`make assets` needs `DEJAVU_FONT`, which the devshell sets. The default asset directory is `build/assets`.
+`make assets` needs `DEJAVU_FONT`, which the devshell sets. The default asset directory is `build/assets`. Pass `TIPS_FILE=/path/to/tips.txt` to render tips locally.
 
 Integration tests need a headless compositor and the tools from the devshell:
 
@@ -45,6 +45,8 @@ ojuny-login-splash [options]
 
   --seconds N   exit after N seconds
   --fade N      fade and grow over N seconds instead of rotating
+  --fade-in N   asset fade-in over N seconds (default 0.3)
+  --fade-out N  fade out over N seconds before the timer exits (default 0.3)
   --quit        stop all running instances
   --help        show help
   --version     show the version
@@ -55,9 +57,13 @@ Default animation:
 - 60 degree rotation over 0.7 seconds with smoothstep easing.
 - 0.3 second hold.
 - Repeats from the next 60 degree step.
+- Logo and text fade in over 0.3 seconds.
+- A timed exit fades the assets and the background out over 0.3 seconds.
 - Renders on `wl_surface.frame` callbacks at the output refresh rate. There is no fixed frame rate.
 
-`--fade N` disables rotation. Logo and text fade from alpha 0 to 1 and grow from 0.85 to 1.0 over N seconds. The final frame is kept.
+`--fade N` disables rotation. Logo and text fade from alpha 0 to 1 and grow from 0.85 to 1.0 over N seconds. The final frame is kept. `--fade-in` and `--fade-out` work with both the rotation and the `--fade` mode. Set either to 0 to disable it. ESC and `--quit` always exit immediately; the timed fade-out does not delay them.
+
+The background fade uses the EGL buffer alpha. When the driver does not provide an alpha config, the background stays opaque while the assets still fade.
 
 `--quit` scans `$XDG_RUNTIME_DIR/ojuny-login-splash/*.sock`, sends a quit byte to every instance, removes stale sockets, and exits.
 
@@ -71,6 +77,9 @@ ESC exits immediately. The layer surface requests exclusive keyboard focus.
 
   services.ojuny-login-splash.enable = true;
   services.ojuny-login-splash.seconds = 10;
+  services.ojuny-login-splash.showOnRebuild = false;
+  services.ojuny-login-splash.fadeIn = 0.3;
+  services.ojuny-login-splash.fadeOut = 0.3;
   # services.ojuny-login-splash.fade = 2.5;
 }
 ```
@@ -121,6 +130,7 @@ Assets are generated at build time as raw RGBA files in a dedicated asset direct
 
 - Logo: source image, optional recolor, 22 percent transparent border.
 - Text: "Welcome to Ojuny", rendered with the chosen font.
+- Tips: zero or more subtext lines, pre-rendered with a smaller font.
 - Metadata: background color, logo size, text size, text gap.
 
 Defaults:
@@ -131,6 +141,20 @@ Defaults:
 - Font DejaVu Sans 32px
 - Logo content 512px
 - Text gap 32px
+- Tip font 18px, tip color `#a89984`, tip gap 10px
+- No tips by default
+
+Add tips through the asset derivation:
+
+```nix
+tips = [
+  "Press Super+Return to open a terminal."
+  "Super+R reloads the mango configuration."
+];
+tipForeground = config.lib.stylix.colors.base04;
+```
+
+One tip is chosen at random per splash instance. The tips are rendered at build time, so the runtime still has no font stack. In `ojuny-desktop`, set `desktop.ojuny.splash.tips`; the template settings page exposes it as an editable list.
 
 Override the asset derivation to match Stylix:
 

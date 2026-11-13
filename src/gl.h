@@ -46,6 +46,7 @@ typedef struct Gl {
     GLuint vbo;
     GLuint logo_tex;
     GLuint text_tex;
+    GLuint tip_tex;
     GLint a_pos;
     GLint a_uv;
     GLint u_tex;

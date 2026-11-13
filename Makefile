@@ -4,6 +4,7 @@ ASSET_DIR ?= build/assets
 VERSION := 0.1.0
 DEJAVU_FONT ?=
 FONT ?= $(DEJAVU_FONT)
+TIPS_FILE ?=
 EGL_VENDOR_DIR ?=
 GL_DRIVER_DIR ?=
 RPATH ?=
@@ -14,6 +15,7 @@ WAYLAND_LIBS := $(shell $(PKG_CONFIG) --libs wayland-client 2>/dev/null)
 
 CFLAGS ?= -O2 -g
 CFLAGS += -std=c17 -Wall -Wextra -Wpedantic -D_GNU_SOURCE -DVERSION=\"$(VERSION)\"
+CFLAGS += -MMD -MP
 CPPFLAGS += -DOJUNY_ASSET_DIR=\"$(ASSET_DIR)\" $(WAYLAND_CFLAGS)
 ifneq ($(EGL_VENDOR_DIR),)
 CPPFLAGS += -DOJUNY_EGL_VENDOR_DIR=\"$(EGL_VENDOR_DIR)\"
@@ -63,7 +65,7 @@ $(PROTOCOL_HEADER): $(PROTOCOL_XML) | $(BUILD)
 $(PROTOCOL_SOURCE): $(PROTOCOL_XML) | $(BUILD)
 	wayland-scanner private-code $< $@
 
-$(BUILD)/%.o: src/%.c $(PROTOCOL_HEADER) | $(BUILD)
+$(BUILD)/%.o: src/%.c $(PROTOCOL_HEADER) $(wildcard src/*.h) | $(BUILD)
 	$(CC) $(CPPFLAGS) $(CFLAGS) -I$(BUILD) -c $< -o $@
 
 $(BUILD)/wlr-layer-shell-unstable-v1-protocol.o: $(PROTOCOL_SOURCE) $(PROTOCOL_HEADER) | $(BUILD)
@@ -89,7 +91,10 @@ assets:
 	python3 scripts/gen-assets.py \
 		--logo assets/ojuny-logo.png \
 		--out-dir $(ASSET_DIR) \
-		--font "$(FONT)"
+		--font "$(FONT)" \
+		$(if $(TIPS_FILE),--tips-file "$(TIPS_FILE)")
 
 clean:
 	rm -rf $(BUILD)
+
+-include $(OBJECTS:.o=.d)

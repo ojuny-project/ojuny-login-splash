@@ -95,20 +95,32 @@ void render_surface_draw(app *application, surface *draw_surface) {
     if (width <= 0 || height <= 0) {
         return;
     }
+    double now = now_monotonic();
+    double exit_alpha = 1.0;
+    if (application->have_stop_deadline && application->fade_out_started &&
+        application->opts.fade_out > 0.0) {
+        double remaining = application->stop_deadline - now;
+        if (remaining < 0.0) {
+            remaining = 0.0;
+        }
+        exit_alpha = clampd(remaining / application->opts.fade_out, 0.0, 1.0);
+    }
+
     gl->p_glViewport(0, 0, width, height);
     float red = (float)((application->assets.bg_rgb >> 16) & 255u) / 255.0f;
     float green = (float)((application->assets.bg_rgb >> 8) & 255u) / 255.0f;
     float blue = (float)(application->assets.bg_rgb & 255u) / 255.0f;
-    gl->p_glClearColor(red, green, blue, 1.0f);
+    gl->p_glClearColor(red, green, blue, (float)exit_alpha);
     gl->p_glClear(GL_COLOR_BUFFER_BIT);
 
-    AnimFrame frame = anim_sample(&application->anim, now_monotonic());
+    AnimFrame frame = anim_sample(&application->anim, now);
+    float content_alpha = (float)(frame.alpha * exit_alpha);
     double center_x = (double)width * 0.5;
     double center_y = (double)height * 0.5;
     draw_quad(gl, gl->logo_tex, width, height,
               (double)application->assets.logo_w,
               (double)application->assets.logo_h, center_x, center_y,
-              frame.angle, frame.scale, (float)frame.alpha, true);
+              frame.angle, frame.scale, content_alpha, true);
 
     double text_center_x = (double)width * 0.5;
     double text_center_y =
@@ -119,9 +131,24 @@ void render_surface_draw(app *application, surface *draw_surface) {
     draw_quad(gl, gl->text_tex, width, height,
               (double)application->assets.text_w,
               (double)application->assets.text_h, text_center_x, text_center_y,
-              0.0, frame.scale, (float)frame.alpha, false);
+              0.0, frame.scale, content_alpha, false);
 
-    if (!frame.done) {
+    if (gl->tip_tex != 0) {
+        double tip_top =
+            (double)height * 0.5 +
+            (double)application->assets.logo_content * 0.5 +
+            (double)application->assets.text_gap +
+            (double)application->assets.text_h +
+            (double)application->assets.tip_gap;
+        double tip_center_y =
+            tip_top + (double)application->assets.tip_h * 0.5;
+        draw_quad(gl, gl->tip_tex, width, height,
+                  (double)application->assets.tip_w,
+                  (double)application->assets.tip_h, text_center_x,
+                  tip_center_y, 0.0, frame.scale, content_alpha, false);
+    }
+
+    if (!frame.done || application->fade_out_started) {
         draw_surface->frame_cb = wl_surface_frame(draw_surface->wl_surface);
         if (draw_surface->frame_cb) {
             wl_callback_add_listener(draw_surface->frame_cb, &frame_listener,
@@ -172,6 +199,7 @@ void render_surface_configure(app *application, surface *draw_surface) {
         wl_surface_set_buffer_scale(draw_surface->wl_surface,
                                     draw_surface->scale);
     }
+    wl_surface_set_opaque_region(draw_surface->wl_surface, NULL);
     render_surface_draw(application, draw_surface);
 }
 

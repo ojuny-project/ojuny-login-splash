@@ -15,7 +15,7 @@ static void close_to(double actual, double expected, double tolerance) {
 
 static void test_rotation(void) {
     Anim anim;
-    anim_init(&anim, 0.0);
+    anim_init(&anim, 0.0, 0.3);
     anim_start(&anim, 100.0);
 
     AnimFrame frame = anim_sample(&anim, 100.0);
@@ -47,7 +47,7 @@ static void test_rotation(void) {
 
 static void test_fade(void) {
     Anim anim;
-    anim_init(&anim, 2.0);
+    anim_init(&anim, 2.0, 0.0);
     anim_start(&anim, 50.0);
 
     AnimFrame frame = anim_sample(&anim, 50.0);

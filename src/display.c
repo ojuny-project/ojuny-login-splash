@@ -116,7 +116,9 @@ static void layer_configure(void *data,
     if (application->egl_ready) {
         render_surface_configure(application, draw_surface);
     } else {
-        render_cpu_cover(application, draw_surface, false);
+        render_cpu_cover(application, draw_surface,
+                         application->opts.fade <= 0.0 &&
+                             application->opts.fade_in <= 0.0);
     }
 }
 
@@ -239,7 +241,9 @@ static void output_scale(void *data, struct wl_output *wl_output,
     if (out->app->egl_ready) {
         render_surface_configure(out->app, out->surface);
     } else {
-        render_cpu_cover(out->app, out->surface, false);
+        render_cpu_cover(out->app, out->surface,
+                         out->app->opts.fade <= 0.0 &&
+                             out->app->opts.fade_in <= 0.0);
     }
 }
 
@@ -508,12 +512,22 @@ void display_loop(app *application) {
         };
         int timeout = -1;
         if (application->have_stop_deadline) {
-            double remaining =
-                application->stop_deadline - now_monotonic();
+            double now = now_monotonic();
+            double next = application->stop_deadline;
+            if (application->opts.fade_out > 0.0 &&
+                !application->fade_out_started) {
+                double fade_start =
+                    application->stop_deadline - application->opts.fade_out;
+                next = fade_start > now ? fade_start : now;
+            }
+            double remaining = next - now;
             if (remaining <= 0.0) {
-                application->running = false;
-                wl_display_cancel_read(application->display);
-                break;
+                if (now >= application->stop_deadline) {
+                    application->running = false;
+                    wl_display_cancel_read(application->display);
+                    break;
+                }
+                remaining = 0.0;
             }
             timeout = (int)(remaining * 1000.0) + 1;
         }
@@ -567,8 +581,22 @@ void display_loop(app *application) {
             }
         }
         wl_display_flush(application->display);
+        double now = now_monotonic();
+        if (application->running && application->have_stop_deadline &&
+            application->opts.fade_out > 0.0 &&
+            !application->fade_out_started &&
+            now >= application->stop_deadline - application->opts.fade_out) {
+            application->fade_out_started = true;
+            for (surface *draw_surface = application->surfaces; draw_surface;
+                 draw_surface = draw_surface->next) {
+                if (draw_surface->configured && !draw_surface->frame_cb) {
+                    render_surface_draw(application, draw_surface);
+                }
+            }
+            wl_display_flush(application->display);
+        }
         if (application->have_stop_deadline &&
-            now_monotonic() >= application->stop_deadline) {
+            now >= application->stop_deadline) {
             application->running = false;
         }
     }

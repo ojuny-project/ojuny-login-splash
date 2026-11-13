@@ -6,6 +6,10 @@ let
   arguments = lib.concatStringsSep " " (
     lib.optional (cfg.seconds != null) "--seconds ${toString cfg.seconds}"
     ++ lib.optional (cfg.fade != null) "--fade ${toString cfg.fade}"
+    ++ [
+      "--fade-in ${toString cfg.fadeIn}"
+      "--fade-out ${toString cfg.fadeOut}"
+    ]
   );
 in
 {
@@ -34,6 +38,18 @@ in
       type = lib.types.nullOr lib.types.float;
       default = null;
       description = "Fade and grow over this many seconds instead of rotating.";
+    };
+
+    fadeIn = lib.mkOption {
+      type = lib.types.float;
+      default = 0.3;
+      description = "Asset fade-in duration in seconds. 0 disables it.";
+    };
+
+    fadeOut = lib.mkOption {
+      type = lib.types.float;
+      default = 0.3;
+      description = "Asset and background fade-out duration in seconds before a timed exit. 0 disables it.";
     };
 
     sessionTarget = lib.mkOption {

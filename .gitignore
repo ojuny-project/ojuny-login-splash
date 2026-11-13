@@ -10,4 +10,5 @@ result-*
 
 # Local build output
 build/
+build-*/
 assets-generated/

@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/random.h>
 #include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
@@ -86,6 +87,17 @@ int create_shm_file(size_t size) {
         return -1;
     }
     return -1;
+}
+
+uint32_t random_u32(void) {
+    uint32_t value = 0;
+    if (getrandom(&value, sizeof(value), 0) == (ssize_t)sizeof(value)) {
+        return value;
+    }
+    value = (uint32_t)(now_monotonic() * 1000000.0);
+    value ^= (uint32_t)getpid() * 2654435761u;
+    value ^= value >> 16;
+    return value;
 }
 
 bool write_all(int fd, const void *data, size_t size) {

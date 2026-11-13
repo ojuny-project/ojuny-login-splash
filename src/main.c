@@ -39,7 +39,8 @@ int main(int argc, char **argv) {
     if (!assets_load(&application.assets)) {
         return 1;
     }
-    anim_init(&application.anim, application.opts.fade);
+    anim_init(&application.anim, application.opts.fade,
+              application.opts.fade_in);
     if (!runtime_init(&application.runtime)) {
         assets_unload(&application.assets);
         return 1;
