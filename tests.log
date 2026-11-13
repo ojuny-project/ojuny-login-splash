@@ -1,0 +1,10 @@
+# Tests
+# Local test record for this repository.
+# Run against commit 01f6cf8 on 2026-11-13.
+# Device: ojuny test laptop, NixOS 26.11.20261111.d4f25a3, kernel 6.18.63.
+# Result: all listed tests passed.
+
+- PASS splash render: the binary renders the themed splash and the configured tip. Method: start it through `ojuny-login-splash.service` with `--seconds 10 --fade-in 0.3 --fade-out 0.3`, capture the screen during the run, and confirm the Ojuny logo, `Welcome to Ojuny`, and the test tip on the Stylix background. Evidence: RUN-04, `/tmp/opencode/splash1.png`.
+- PASS fades: the fade-in and fade-out flags are accepted and applied. Method: read the unit's `ExecStart` and observe the rendered content during the 10 second run. Evidence: RUN-04.
+- PASS tips: a configured tip replaces the default subtext. Method: rebuild with `tips = [ "Ojuny splash test tip" ]` and confirm it appears under the welcome text. Evidence: RUN-04.
+- PASS quit path: `--quit` stops the running splash. Method: the unit's `ExecStop` calls `ojuny-login-splash --quit`; the service exits cleanly with `Restart=no` and `TimeoutStopSec=1`. Evidence: RUN-04.
